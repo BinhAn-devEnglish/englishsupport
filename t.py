@@ -6,7 +6,7 @@ from io import BytesIO
 import random
 
 # ==========================================
-# PHẦN 1: CẤU HÌNH GIAO DIỆN VÀ BẢO MẬT
+# PHẦN 1: CẤU HÌNH GIAO DIỆN VÀ BẢO MẬT (ĐÃ SỬA)
 # ==========================================
 st.set_page_config(
     page_title="English for Kids", 
@@ -14,20 +14,30 @@ st.set_page_config(
     layout="centered"
 )
 
-# Đoạn mã CSS để ẩn Menu, Footer và Header của Streamlit
+# CSS MỚI: Ẩn các thành phần thừa nhưng GIỮ lại nút mở Sidebar trên mobile
 hide_st_style = """
             <style>
+            /* Ẩn nút 3 chấm (Menu) ở góc trên bên phải */
             #MainMenu {visibility: hidden;}
+            
+            /* Ẩn dòng chữ Made with Streamlit ở dưới cùng */
             footer {visibility: hidden;}
-            header {visibility: hidden;}
-            /* Ẩn cả nút Deploy nếu có */
+            
+            /* Ẩn nút Deploy và các nút thừa ở header nhưng không ẩn toàn bộ header */
             .stDeployButton {display:none;}
+            [data-testid="stToolbar"] {visibility: hidden;}
+            
+            /* Đảm bảo nút đóng/mở sidebar (mũi tên) luôn hiển thị trên mobile */
+            button[data-testid="sidebar-toggle"] {
+                visibility: visible !important;
+                color: #ff4b4b; /* Bạn có thể đổi màu nút này cho dễ thấy */
+            }
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # ==========================================
-# PHẦN 2: CẤU HÌNH KẾT NỐI DATA
+# PHẦN 2: CẤU HÌNH KẾT NỐI DATA (Giữ nguyên)
 # ==========================================
 SHEET_ID = '1JHq0t1Vy1MfYYpWrBLRf_jZfNSp0NKZ7D2Swp6M59R0'
 URL_SHEET1 = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0'
