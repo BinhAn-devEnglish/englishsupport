@@ -6,7 +6,7 @@ from io import BytesIO
 import random
 
 # ==========================================
-# PHẦN 1: CẤU HÌNH GIAO DIỆN VÀ BẢO MẬT (ĐÃ SỬA)
+# PHẦN 1: CHỈ THAY ĐỔI HIỂN THỊ (CSS)
 # ==========================================
 st.set_page_config(
     page_title="English for Kids", 
@@ -14,30 +14,55 @@ st.set_page_config(
     layout="centered"
 )
 
-# CSS MỚI: Ẩn các thành phần thừa nhưng GIỮ lại nút mở Sidebar trên mobile
-hide_st_style = """
-            <style>
-            /* Ẩn nút 3 chấm (Menu) ở góc trên bên phải */
-            #MainMenu {visibility: hidden;}
-            
-            /* Ẩn dòng chữ Made with Streamlit ở dưới cùng */
-            footer {visibility: hidden;}
-            
-            /* Ẩn nút Deploy và các nút thừa ở header nhưng không ẩn toàn bộ header */
-            .stDeployButton {display:none;}
-            [data-testid="stToolbar"] {visibility: hidden;}
-            
-            /* Đảm bảo nút đóng/mở sidebar (mũi tên) luôn hiển thị trên mobile */
-            button[data-testid="sidebar-toggle"] {
-                visibility: visible !important;
-                color: #ff4b4b; /* Bạn có thể đổi màu nút này cho dễ thấy */
-            }
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+# CSS tùy chỉnh để di chuyển nút Sidebar xuống góc dưới bên trái và đổi icon 3 gạch
+st.markdown("""
+    <style>
+    /* Ẩn các thành phần mặc định để giao diện sạch hơn */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display:none;}
+    [data-testid="stToolbar"] {visibility: hidden;}
+
+    /* Di chuyển nút Sidebar Toggle xuống góc dưới bên trái */
+    button[data-testid="sidebar-toggle"] {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 999999;
+        background-color: #ff4b4b !important;
+        color: white !important;
+        border-radius: 50% !important;
+        width: 60px !important;
+        height: 60px !important;
+        box-shadow: 2px 2px 15px rgba(0,0,0,0.3);
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+
+    /* Tạo biểu tượng 3 gạch (☰) */
+    button[data-testid="sidebar-toggle"]::after {
+        content: "☰";
+        font-size: 28px;
+        position: absolute;
+        font-weight: bold;
+    }
+    
+    /* Ẩn icon mũi tên mặc định của Streamlit */
+    button[data-testid="sidebar-toggle"] svg {
+        display: none;
+    }
+
+    /* Đảm bảo Sidebar hiện lên trên các thành phần khác */
+    [data-testid="stSidebar"] {
+        z-index: 1000000;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # ==========================================
-# PHẦN 2: CẤU HÌNH KẾT NỐI DATA (Giữ nguyên)
+# PHẦN 2: GIỮ NGUYÊN CẤU HÌNH KẾT NỐI
 # ==========================================
 SHEET_ID = '1JHq0t1Vy1MfYYpWrBLRf_jZfNSp0NKZ7D2Swp6M59R0'
 URL_SHEET1 = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0'
@@ -104,7 +129,7 @@ def load_data_sheet2():
         return {}
 
 # ==========================================
-# PHẦN 3: CÁC CÔNG CỤ HỖ TRỢ
+# PHẦN 3: GIỮ NGUYÊN CÁC CÔNG CỤ HỖ TRỢ
 # ==========================================
 def autoplay_audio(text):
     try:
@@ -121,7 +146,7 @@ def get_img_url(item):
     return f"https://loremflickr.com/800/600/{item.get('word', 'kid')},cartoon/all"
 
 # ==========================================
-# PHẦN 4: CÁC CHẾ ĐỘ CHƠI
+# PHẦN 4: GIỮ NGUYÊN CÁC CHẾ ĐỘ CHƠI
 # ==========================================
 def game_flashcard(data):
     if "f_idx" not in st.session_state: st.session_state.f_idx = 0
@@ -179,7 +204,7 @@ def game_test_graded(data, lesson_name):
         if st.button("Restart"): st.session_state.ans_t = {}; st.session_state.sub = False; st.rerun()
 
 # ==========================================
-# PHẦN 5: CHƯƠNG TRÌNH CHÍNH (MAIN APP)
+# PHẦN 5: GIỮ NGUYÊN CHƯƠNG TRÌNH CHÍNH
 # ==========================================
 menu = st.sidebar.radio("Menu:", ["📖 Learning", "🎮 Quiz Game", "📝 Test"])
 
