@@ -45,20 +45,25 @@ def load_data_sheet2():
                 curr_test = col_a
                 if curr_test not in tests: tests[curr_test] = []
             
-            if "Câu" in col_b and col_c != "nan":
+            # CẬP NHẬT: Nhận diện nếu có chữ "Câu" HOẶC là số thuần túy
+            is_question_start = "Câu" in col_b or col_b.isdigit()
+            
+            if is_question_start and col_c != "nan":
                 q_text = col_c
                 options = []
                 correct = ""
                 
                 j = i + 1
                 while j < len(df):
+                    next_col_b = str(df.iloc[j, 1]).strip()
                     opt_val = str(df.iloc[j, 2]).strip()
-                    if opt_val == "nan" or opt_val == "" or "Câu" in str(df.iloc[j, 1]):
+                    
+                    # Dừng lại nếu gặp dòng câu hỏi tiếp theo (chữ Câu hoặc số)
+                    if opt_val == "nan" or opt_val == "" or "Câu" in next_col_b or next_col_b.isdigit():
                         break
                     
-                    # CẬP NHẬT: Chấp nhận cả dấu * và dấu ★ ở cuối câu
                     if opt_val.endswith('*') or opt_val.endswith('★'):
-                        clean_val = opt_val[:-1].strip() # Bỏ ký tự cuối cùng
+                        clean_val = opt_val[:-1].strip()
                         correct = clean_val
                         options.append(clean_val)
                     else:
