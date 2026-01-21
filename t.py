@@ -6,7 +6,7 @@ from io import BytesIO
 import random
 
 # ==========================================
-# PHẦN 1: CẤU HÌNH KẾT NỐI
+# PHẦN 1: CẤU HÌNH KẾT NỐI & DỮ LIỆU
 # ==========================================
 SHEET_ID = '1JHq0t1Vy1MfYYpWrBLRf_jZfNSp0NKZ7D2Swp6M59R0'
 URL_SHEET1 = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0'
@@ -39,38 +39,30 @@ def load_data_sheet2():
             col_a = str(df.iloc[i, 0]).strip()
             col_b = str(df.iloc[i, 1]).strip()
             col_c = str(df.iloc[i, 2]).strip()
-            
             if col_a != "nan" and col_a != "":
                 curr_test = col_a
                 if curr_test not in tests: tests[curr_test] = []
-            
             is_question_start = "Câu" in col_b or col_b.isdigit()
-            
             if is_question_start and col_c != "nan":
                 q_text = col_c
-                options = []
-                correct = ""
+                options, correct = [], ""
                 j = i + 1
                 while j < len(df):
                     next_col_b = str(df.iloc[j, 1]).strip()
                     opt_val = str(df.iloc[j, 2]).strip()
-                    if opt_val == "nan" or opt_val == "" or "Câu" in next_col_b or next_col_b.isdigit():
-                        break
+                    if opt_val == "nan" or opt_val == "" or "Câu" in next_col_b or next_col_b.isdigit(): break
                     if opt_val.endswith('*') or opt_val.endswith('★'):
                         clean_val = opt_val[:-1].strip()
                         correct = clean_val
                         options.append(clean_val)
-                    else:
-                        options.append(opt_val)
+                    else: options.append(opt_val)
                     j += 1
                 if q_text and options:
                     tests[curr_test].append({"question": q_text, "options": options, "correct": correct})
                 i = j 
             else: i += 1
         return {k: v for k, v in tests.items() if len(v) > 0}
-    except Exception as e:
-        st.error(f"Lỗi cấu trúc Sheet: {e}")
-        return {}
+    except: return {}
 
 # ==========================================
 # PHẦN 2: CÁC CÔNG CỤ HỖ TRỢ
@@ -90,9 +82,8 @@ def get_img_url(item):
     return f"https://loremflickr.com/800/600/{item.get('word', 'kid')},cartoon/all"
 
 # ==========================================
-# PHẦN 3: GIAO DIỆN CÁC CHẾ ĐỘ CHƠI
+# PHẦN 3: GIAO DIỆN HỌC TẬP & TRÒ CHƠI
 # ==========================================
-
 def game_flashcard(data):
     if "f_idx" not in st.session_state: st.session_state.f_idx = 0
     item = data[st.session_state.f_idx % len(data)]
@@ -126,101 +117,85 @@ def game_quiz_stars(data):
         if st.button("Next Question"): st.session_state.stars += 1; st.session_state.q_idx += 1; st.rerun()
 
 def game_test_graded(data, lesson_name):
-    if "active_test_name" not in st.session_state or st.session_state.active_test_name != lesson_name:
-        st.session_state.ans_t = {}
-        st.session_state.sub = False
-        st.session_state.active_test_name = lesson_name
-
-    # --- THANH TIẾN ĐỘ ---
+    if "ans_t" not in st.session_state: st.session_state.ans_t = {}
+    if "sub" not in st.session_state: st.session_state.sub = False
+    
+    # Theo dõi tiến độ ở Sidebar
     total_q = len(data)
-    answered_count = len(st.session_state.ans_t)
+    done_q = len(st.session_state.ans_t)
+    st.sidebar.markdown(f"### 📊 Tiến độ: {done_q}/{total_q}")
+    st.sidebar.progress(done_q / total_q)
     
-    st.sidebar.markdown(f"### 📊 Tiến độ: {answered_count}/{total_q}")
-    st.sidebar.progress(answered_count / total_q)
-    
-    # Hiển thị ô vuông trạng thái câu hỏi
-    st.sidebar.write("Trạng thái câu hỏi:")
+    st.sidebar.write("Trạng thái câu:")
     grid = st.sidebar.columns(5)
     for i in range(total_q):
         with grid[i % 5]:
-            if i in st.session_state.ans_t:
-                st.markdown(f"✅**{i+1}**")
-            else:
-                st.markdown(f"⚪**{i+1}**")
+            st.write(f"{'✅' if i in st.session_state.ans_t else '⚪'}{i+1}")
 
     st.title(f"📋 {lesson_name}")
     name = st.text_input("Enter your name:", key="name_user")
-    
     if not name: 
-        st.warning("Please enter your name to start the test.")
+        st.warning("Please enter your name to start.")
         return
 
     st.divider()
-
-    # --- DANH SÁCH CÂU HỎI ---
     for idx, item in enumerate(data):
-        st.markdown(f"#### Question {idx+1}: {item['question']}")
-        
-        # Lấy câu trả lời đã lưu (nếu có)
+        st.markdown(f"#### Câu {idx+1}: {item['question']}")
         saved_ans = st.session_state.ans_t.get(idx)
-        try:
-            old_idx = item['options'].index(saved_ans) if saved_ans in item['options'] else None
-        except:
-            old_idx = None
-
-        ans = st.radio(
-            f"Q{idx}", 
-            item['options'], 
-            index=old_idx, 
-            key=f"t_{lesson_name}_{idx}", 
-            disabled=st.session_state.sub,
-            label_visibility="collapsed"
-        )
+        old_idx = item['options'].index(saved_ans) if saved_ans in item['options'] else None
         
-        # Lưu câu trả lời ngay khi chọn
+        ans = st.radio(f"Q{idx}", item['options'], index=old_idx, key=f"t_{idx}", 
+                       disabled=st.session_state.sub, label_visibility="collapsed")
         if ans and ans != saved_ans:
             st.session_state.ans_t[idx] = ans
             st.rerun()
-        
         st.divider()
-        
+
     if not st.session_state.sub:
-        if st.button("SUBMIT TEST", use_container_width=True, type="primary"):
+        if st.button("NỘP BÀI (SUBMIT)", use_container_width=True, type="primary"):
             if len(st.session_state.ans_t) < total_q:
-                st.error(f"⚠️ Bạn chưa làm xong! Còn thiếu {total_q - len(st.session_state.ans_t)} câu.")
+                st.error(f"Bạn còn thiếu {total_q - len(st.session_state.ans_t)} câu!")
             else:
                 st.session_state.sub = True
                 st.rerun()
-        
+
     if st.session_state.sub:
         score = sum(1 for i, item in enumerate(data) if st.session_state.ans_t.get(i) == item['correct'])
         st.balloons()
-        st.success(f"### 🎉 Well done, {name.upper()}!\n### 🏆 Your Score: {score}/{len(data)}")
-        if st.button("Restart"): 
+        st.success(f"### 🎉 Chúc mừng {name.upper()}!\n### 🏆 Điểm của bạn: {score}/{len(data)}")
+        if st.button("Làm lại (Restart)"):
             st.session_state.ans_t = {}
             st.session_state.sub = False
             st.rerun()
 
 # ==========================================
-# PHẦN 4: MAIN APP
+# PHẦN 4: CẤU HÌNH GIAO DIỆN CHÍNH
 # ==========================================
 st.set_page_config(page_title="English for Kids", layout="centered")
 
-# CSS để giao diện gọn gàng hơn
-st.markdown("""<style> [data-testid="stSidebar"] { width: 250px; } </style>""", unsafe_allow_html=True)
+# CSS ẩn Header thừa, Footer nhưng giữ Menu điều hướng
+st.markdown("""
+    <style>
+        header {visibility: hidden;}
+        footer {visibility: hidden;}
+        #MainMenu {visibility: visible;}
+        .stProgress > div > div > div > div { background-color: #2ecc71; }
+        div.stButton > button:first-child { border-radius: 8px; font-weight: bold; }
+    </style>
+""", unsafe_allow_html=True)
 
-menu = st.sidebar.radio("Menu:", ["📖 Learning", "🎮 Quiz Game", "📝 Test"])
+menu = st.sidebar.radio("Menu chính:", ["📖 Học tập", "🎮 Trò chơi Quiz", "📝 Bài kiểm tra"])
 
-if menu == "📝 Test":
+if menu == "📝 Bài kiểm tra":
     tests = load_data_sheet2()
     if tests:
-        choice = st.sidebar.selectbox("Select Test:", list(tests.keys()))
+        choice = st.sidebar.selectbox("Chọn bài thi:", list(tests.keys()))
         game_test_graded(tests[choice], choice)
-    else: st.info("Waiting for Google Sheets connection...")
+    else: st.info("Đang kết nối dữ liệu đề thi...")
 else:
     lessons = load_data_sheet1()
     if lessons:
-        topic_choice = st.sidebar.selectbox("Select Lesson:", list(lessons.keys()))
-        if menu == "📖 Learning": game_flashcard(lessons[topic_choice])
-        else: game_quiz_stars(lessons[topic_choice])
-    else: st.info("Connecting to Lesson data...")
+        topic = st.sidebar.selectbox("Chọn bài học:", list(lessons.keys()))
+        if menu == "📖 Học tập": game_flashcard(lessons[topic])
+        else: game_quiz_stars(lessons[topic])
+    else: st.info("Đang kết nối dữ liệu bài học...")
