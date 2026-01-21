@@ -34,7 +34,6 @@ def load_data_sheet2():
         df = pd.read_csv(URL_SHEET2, header=None, dtype=str).fillna("nan")
         tests = {}
         curr_test = "Chưa phân loại"
-        
         i = 0
         while i < len(df):
             col_a = str(df.iloc[i, 0]).strip()
@@ -45,23 +44,18 @@ def load_data_sheet2():
                 curr_test = col_a
                 if curr_test not in tests: tests[curr_test] = []
             
-            # CẬP NHẬT: Nhận diện nếu có chữ "Câu" HOẶC là số thuần túy
             is_question_start = "Câu" in col_b or col_b.isdigit()
             
             if is_question_start and col_c != "nan":
                 q_text = col_c
                 options = []
                 correct = ""
-                
                 j = i + 1
                 while j < len(df):
                     next_col_b = str(df.iloc[j, 1]).strip()
                     opt_val = str(df.iloc[j, 2]).strip()
-                    
-                    # Dừng lại nếu gặp dòng câu hỏi tiếp theo (chữ Câu hoặc số)
                     if opt_val == "nan" or opt_val == "" or "Câu" in next_col_b or next_col_b.isdigit():
                         break
-                    
                     if opt_val.endswith('*') or opt_val.endswith('★'):
                         clean_val = opt_val[:-1].strip()
                         correct = clean_val
@@ -69,24 +63,17 @@ def load_data_sheet2():
                     else:
                         options.append(opt_val)
                     j += 1
-                
                 if q_text and options:
-                    tests[curr_test].append({
-                        "question": q_text, 
-                        "options": options, 
-                        "correct": correct
-                    })
+                    tests[curr_test].append({"question": q_text, "options": options, "correct": correct})
                 i = j 
-            else:
-                i += 1
-                
+            else: i += 1
         return {k: v for k, v in tests.items() if len(v) > 0}
     except Exception as e:
         st.error(f"Lỗi cấu trúc Sheet: {e}")
         return {}
 
 # ==========================================
-# PHẦN 2: CÁC CÔNG CỤ HỖ TRỢ (Giữ nguyên)
+# PHẦN 2: CÁC CÔNG CỤ HỖ TRỢ
 # ==========================================
 def autoplay_audio(text):
     try:
@@ -103,8 +90,9 @@ def get_img_url(item):
     return f"https://loremflickr.com/800/600/{item.get('word', 'kid')},cartoon/all"
 
 # ==========================================
-# PHẦN 3: GIAO DIỆN (Giữ nguyên cấu trúc ổn định)
+# PHẦN 3: GIAO DIỆN CÁC CHẾ ĐỘ CHƠI
 # ==========================================
+
 def game_flashcard(data):
     if "f_idx" not in st.session_state: st.session_state.f_idx = 0
     item = data[st.session_state.f_idx % len(data)]
@@ -143,31 +131,84 @@ def game_test_graded(data, lesson_name):
         st.session_state.sub = False
         st.session_state.active_test_name = lesson_name
 
+    # --- THANH TIẾN ĐỘ ---
+    total_q = len(data)
+    answered_count = len(st.session_state.ans_t)
+    
+    st.sidebar.markdown(f"### 📊 Tiến độ: {answered_count}/{total_q}")
+    st.sidebar.progress(answered_count / total_q)
+    
+    # Hiển thị ô vuông trạng thái câu hỏi
+    st.sidebar.write("Trạng thái câu hỏi:")
+    grid = st.sidebar.columns(5)
+    for i in range(total_q):
+        with grid[i % 5]:
+            if i in st.session_state.ans_t:
+                st.markdown(f"✅**{i+1}**")
+            else:
+                st.markdown(f"⚪**{i+1}**")
+
     st.title(f"📋 {lesson_name}")
     name = st.text_input("Enter your name:", key="name_user")
+    
     if not name: 
         st.warning("Please enter your name to start the test.")
         return
-    
+
+    st.divider()
+
+    # --- DANH SÁCH CÂU HỎI ---
     for idx, item in enumerate(data):
         st.markdown(f"#### Question {idx+1}: {item['question']}")
-        ans = st.radio(f"Select answer {idx}", item['options'], index=None, key=f"t_{lesson_name}_{idx}", disabled=st.session_state.sub)
-        if ans: st.session_state.ans_t[idx] = ans
         
-    if not st.session_state.sub and st.button("SUBMIT"):
-        if len(st.session_state.ans_t) < len(data): st.warning("Please finish all questions!")
-        else: st.session_state.sub = True; st.rerun()
+        # Lấy câu trả lời đã lưu (nếu có)
+        saved_ans = st.session_state.ans_t.get(idx)
+        try:
+            old_idx = item['options'].index(saved_ans) if saved_ans in item['options'] else None
+        except:
+            old_idx = None
+
+        ans = st.radio(
+            f"Q{idx}", 
+            item['options'], 
+            index=old_idx, 
+            key=f"t_{lesson_name}_{idx}", 
+            disabled=st.session_state.sub,
+            label_visibility="collapsed"
+        )
+        
+        # Lưu câu trả lời ngay khi chọn
+        if ans and ans != saved_ans:
+            st.session_state.ans_t[idx] = ans
+            st.rerun()
+        
+        st.divider()
+        
+    if not st.session_state.sub:
+        if st.button("SUBMIT TEST", use_container_width=True, type="primary"):
+            if len(st.session_state.ans_t) < total_q:
+                st.error(f"⚠️ Bạn chưa làm xong! Còn thiếu {total_q - len(st.session_state.ans_t)} câu.")
+            else:
+                st.session_state.sub = True
+                st.rerun()
         
     if st.session_state.sub:
         score = sum(1 for i, item in enumerate(data) if st.session_state.ans_t.get(i) == item['correct'])
         st.balloons()
         st.success(f"### 🎉 Well done, {name.upper()}!\n### 🏆 Your Score: {score}/{len(data)}")
-        if st.button("Restart"): st.session_state.ans_t = {}; st.session_state.sub = False; st.rerun()
+        if st.button("Restart"): 
+            st.session_state.ans_t = {}
+            st.session_state.sub = False
+            st.rerun()
 
 # ==========================================
 # PHẦN 4: MAIN APP
 # ==========================================
 st.set_page_config(page_title="English for Kids", layout="centered")
+
+# CSS để giao diện gọn gàng hơn
+st.markdown("""<style> [data-testid="stSidebar"] { width: 250px; } </style>""", unsafe_allow_html=True)
+
 menu = st.sidebar.radio("Menu:", ["📖 Learning", "🎮 Quiz Game", "📝 Test"])
 
 if menu == "📝 Test":
