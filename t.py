@@ -6,63 +6,7 @@ from io import BytesIO
 import random
 
 # ==========================================
-# PHẦN 1: CHỈ THAY ĐỔI HIỂN THỊ (CSS)
-# ==========================================
-st.set_page_config(
-    page_title="English for Kids", 
-    page_icon="🎓", 
-    layout="centered"
-)
-
-# CSS tùy chỉnh để di chuyển nút Sidebar xuống góc dưới bên trái và đổi icon 3 gạch
-st.markdown("""
-    <style>
-    /* Ẩn các thành phần mặc định để giao diện sạch hơn */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .stDeployButton {display:none;}
-    [data-testid="stToolbar"] {visibility: hidden;}
-
-    /* Di chuyển nút Sidebar Toggle xuống góc dưới bên trái */
-    button[data-testid="sidebar-toggle"] {
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        z-index: 999999;
-        background-color: #ff4b4b !important;
-        color: white !important;
-        border-radius: 50% !important;
-        width: 60px !important;
-        height: 60px !important;
-        box-shadow: 2px 2px 15px rgba(0,0,0,0.3);
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-    }
-
-    /* Tạo biểu tượng 3 gạch (☰) */
-    button[data-testid="sidebar-toggle"]::after {
-        content: "☰";
-        font-size: 28px;
-        position: absolute;
-        font-weight: bold;
-    }
-    
-    /* Ẩn icon mũi tên mặc định của Streamlit */
-    button[data-testid="sidebar-toggle"] svg {
-        display: none;
-    }
-
-    /* Đảm bảo Sidebar hiện lên trên các thành phần khác */
-    [data-testid="stSidebar"] {
-        z-index: 1000000;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# ==========================================
-# PHẦN 2: GIỮ NGUYÊN CẤU HÌNH KẾT NỐI
+# PHẦN 1: CẤU HÌNH KẾT NỐI
 # ==========================================
 SHEET_ID = '1JHq0t1Vy1MfYYpWrBLRf_jZfNSp0NKZ7D2Swp6M59R0'
 URL_SHEET1 = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0'
@@ -90,30 +34,37 @@ def load_data_sheet2():
         df = pd.read_csv(URL_SHEET2, header=None, dtype=str).fillna("nan")
         tests = {}
         curr_test = "Chưa phân loại"
+        
         i = 0
         while i < len(df):
             col_a = str(df.iloc[i, 0]).strip()
             col_b = str(df.iloc[i, 1]).strip()
             col_c = str(df.iloc[i, 2]).strip()
+            
             if col_a != "nan" and col_a != "":
                 curr_test = col_a
                 if curr_test not in tests: tests[curr_test] = []
+            
             if "Câu" in col_b and col_c != "nan":
                 q_text = col_c
                 options = []
                 correct = ""
+                
                 j = i + 1
                 while j < len(df):
                     opt_val = str(df.iloc[j, 2]).strip()
                     if opt_val == "nan" or opt_val == "" or "Câu" in str(df.iloc[j, 1]):
                         break
+                    
+                    # CẬP NHẬT: Chấp nhận cả dấu * và dấu ★ ở cuối câu
                     if opt_val.endswith('*') or opt_val.endswith('★'):
-                        clean_val = opt_val[:-1].strip()
+                        clean_val = opt_val[:-1].strip() # Bỏ ký tự cuối cùng
                         correct = clean_val
                         options.append(clean_val)
                     else:
                         options.append(opt_val)
                     j += 1
+                
                 if q_text and options:
                     tests[curr_test].append({
                         "question": q_text, 
@@ -123,13 +74,14 @@ def load_data_sheet2():
                 i = j 
             else:
                 i += 1
+                
         return {k: v for k, v in tests.items() if len(v) > 0}
     except Exception as e:
         st.error(f"Lỗi cấu trúc Sheet: {e}")
         return {}
 
 # ==========================================
-# PHẦN 3: GIỮ NGUYÊN CÁC CÔNG CỤ HỖ TRỢ
+# PHẦN 2: CÁC CÔNG CỤ HỖ TRỢ (Giữ nguyên)
 # ==========================================
 def autoplay_audio(text):
     try:
@@ -146,7 +98,7 @@ def get_img_url(item):
     return f"https://loremflickr.com/800/600/{item.get('word', 'kid')},cartoon/all"
 
 # ==========================================
-# PHẦN 4: GIỮ NGUYÊN CÁC CHẾ ĐỘ CHƠI
+# PHẦN 3: GIAO DIỆN (Giữ nguyên cấu trúc ổn định)
 # ==========================================
 def game_flashcard(data):
     if "f_idx" not in st.session_state: st.session_state.f_idx = 0
@@ -185,18 +137,22 @@ def game_test_graded(data, lesson_name):
         st.session_state.ans_t = {}
         st.session_state.sub = False
         st.session_state.active_test_name = lesson_name
+
     st.title(f"📋 {lesson_name}")
     name = st.text_input("Enter your name:", key="name_user")
     if not name: 
         st.warning("Please enter your name to start the test.")
         return
+    
     for idx, item in enumerate(data):
         st.markdown(f"#### Question {idx+1}: {item['question']}")
         ans = st.radio(f"Select answer {idx}", item['options'], index=None, key=f"t_{lesson_name}_{idx}", disabled=st.session_state.sub)
         if ans: st.session_state.ans_t[idx] = ans
+        
     if not st.session_state.sub and st.button("SUBMIT"):
         if len(st.session_state.ans_t) < len(data): st.warning("Please finish all questions!")
         else: st.session_state.sub = True; st.rerun()
+        
     if st.session_state.sub:
         score = sum(1 for i, item in enumerate(data) if st.session_state.ans_t.get(i) == item['correct'])
         st.balloons()
@@ -204,8 +160,9 @@ def game_test_graded(data, lesson_name):
         if st.button("Restart"): st.session_state.ans_t = {}; st.session_state.sub = False; st.rerun()
 
 # ==========================================
-# PHẦN 5: GIỮ NGUYÊN CHƯƠNG TRÌNH CHÍNH
+# PHẦN 4: MAIN APP
 # ==========================================
+st.set_page_config(page_title="English for Kids", layout="centered")
 menu = st.sidebar.radio("Menu:", ["📖 Learning", "🎮 Quiz Game", "📝 Test"])
 
 if menu == "📝 Test":
