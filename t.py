@@ -4,6 +4,7 @@ from gtts import gTTS
 import base64
 from io import BytesIO
 import random
+import time  # <--- BỔ SUNG THƯ VIỆN NÀY
 
 # ==========================================
 # PHẦN 1: CẤU HÌNH KẾT NỐI
@@ -131,14 +132,12 @@ def game_test_graded(data, lesson_name):
         st.session_state.sub = False
         st.session_state.active_test_name = lesson_name
 
-    # --- THANH TIẾN ĐỘ ---
     total_q = len(data)
     answered_count = len(st.session_state.ans_t)
     
     st.sidebar.markdown(f"### 📊 Tiến độ: {answered_count}/{total_q}")
     st.sidebar.progress(answered_count / total_q)
     
-    # Hiển thị ô vuông trạng thái câu hỏi
     st.sidebar.write("Trạng thái câu hỏi:")
     grid = st.sidebar.columns(5)
     for i in range(total_q):
@@ -157,11 +156,9 @@ def game_test_graded(data, lesson_name):
 
     st.divider()
 
-    # --- DANH SÁCH CÂU HỎI ---
     for idx, item in enumerate(data):
         st.markdown(f"#### Question {idx+1}: {item['question']}")
         
-        # Lấy câu trả lời đã lưu (nếu có)
         saved_ans = st.session_state.ans_t.get(idx)
         try:
             old_idx = item['options'].index(saved_ans) if saved_ans in item['options'] else None
@@ -177,7 +174,6 @@ def game_test_graded(data, lesson_name):
             label_visibility="collapsed"
         )
         
-        # Lưu câu trả lời ngay khi chọn
         if ans and ans != saved_ans:
             st.session_state.ans_t[idx] = ans
             st.rerun()
@@ -201,15 +197,71 @@ def game_test_graded(data, lesson_name):
             st.session_state.sub = False
             st.rerun()
 
+# --- MỚI: GAME GHI NHỚ ÂM & HÌNH (5s) ---
+def game_memory_audio(data):
+    if "mem_idx" not in st.session_state: st.session_state.mem_idx = 0
+    # mem_state: 'init' (hiện & đọc), 'hidden' (ẩn chữ), 'reveal' (hiện đáp án)
+    if "mem_state" not in st.session_state: st.session_state.mem_state = "init"
+
+    item = data[st.session_state.mem_idx % len(data)]
+    
+    st.markdown("### 🧠 Ghi nhớ: Hình & Âm")
+    st.caption("Nhìn hình, nghe âm thanh. Sau 5 giây chữ sẽ biến mất!")
+    
+    # Luôn hiển thị ảnh
+    st.image(get_img_url(item), width=500)
+    
+    # Các vùng chứa (placeholder) để thay đổi nội dung mà không cần render lại toàn bộ trang ngay lập tức
+    text_container = st.empty()
+    control_container = st.empty()
+
+    # LOGIC CHÍNH
+    if st.session_state.mem_state == "init":
+        # Bước 1: Hiện chữ và Phát âm
+        text_container.title(f"🔤 {item['word']}")
+        autoplay_audio(item['word'])
+        
+        # Thanh đếm ngược 5s
+        progress_text = "Đang ghi nhớ... (5s)"
+        my_bar = st.progress(0, text=progress_text)
+        
+        # Chạy thời gian thực (Sleep 5s)
+        for percent_complete in range(100):
+            time.sleep(0.05) # 0.05 * 100 = 5 giây
+            my_bar.progress(percent_complete + 1, text=progress_text)
+        
+        # Sau khi đếm xong
+        my_bar.empty()       # Xóa thanh tiến độ
+        text_container.empty() # Xóa chữ
+        st.session_state.mem_state = "hidden" # Chuyển trạng thái
+        st.rerun() # Load lại để cập nhật giao diện
+
+    elif st.session_state.mem_state == "hidden":
+        # Bước 2: Chữ đã ẩn, hỏi bé
+        text_container.info("❓ Con có nhớ từ vừa rồi là gì không? Hãy đọc to lên nhé!")
+        if control_container.button("Xem đáp án 👀", type="primary"):
+            st.session_state.mem_state = "reveal"
+            st.rerun()
+            
+    elif st.session_state.mem_state == "reveal":
+        # Bước 3: Hiện lại đáp án
+        text_container.success(f"🎉 Đáp án: {item['word']}")
+        autoplay_audio(item['word']) # Đọc lại lần nữa để khẳng định
+        
+        if control_container.button("Câu tiếp theo ➡️"):
+            st.session_state.mem_idx += 1
+            st.session_state.mem_state = "init" # Reset về trạng thái đầu cho từ mới
+            st.rerun()
+
 # ==========================================
 # PHẦN 4: MAIN APP
 # ==========================================
 st.set_page_config(page_title="English for Kids", layout="centered")
 
-# CSS để giao diện gọn gàng hơn
 st.markdown("""<style> [data-testid="stSidebar"] { width: 250px; } </style>""", unsafe_allow_html=True)
 
-menu = st.sidebar.radio("Menu:", ["📖 Learning", "🎮 Quiz Game", "📝 Test"])
+# Cập nhật Menu thêm game mới
+menu = st.sidebar.radio("Menu:", ["📖 Learning", "🧠 Memory Game", "🎮 Quiz Game", "📝 Test"])
 
 if menu == "📝 Test":
     tests = load_data_sheet2()
@@ -221,6 +273,11 @@ else:
     lessons = load_data_sheet1()
     if lessons:
         topic_choice = st.sidebar.selectbox("Select Lesson:", list(lessons.keys()))
-        if menu == "📖 Learning": game_flashcard(lessons[topic_choice])
-        else: game_quiz_stars(lessons[topic_choice])
+        if menu == "📖 Learning": 
+            game_flashcard(lessons[topic_choice])
+        elif menu == "🧠 Memory Game": 
+            # Gọi hàm game mới tại đây
+            game_memory_audio(lessons[topic_choice])
+        else: 
+            game_quiz_stars(lessons[topic_choice])
     else: st.info("Connecting to Lesson data...")
